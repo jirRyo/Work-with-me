@@ -61,8 +61,17 @@ if df_score is not None:
                        & (df_score[target_col_score] <= 999) 
                        & (df_score[target_col_score] == df_score[target_col_score].astype(float))]
 
+     total_input = len(filtered_df_score)
+     if total_input > 100:
+            raw_data = filtered_df_score[:100]
+            st.warning(f"⚠️ ผู้ใช้ส่งมาทั้งหมด {total_input} ค่า แต่ระบบจำกัดรับแค่ **100 ค่าแรก** เท่านั้นครับ")
+     else:
+            st.success(f"✅ รับข้อมูลสำเร็จครบถ้วน จำนวน {total_input} ค่า")
+
 #---------------------ระบบเลือก คอลัมน์ ที่ต้องการคำนวณ-----------------
      st.header("ตารางแสดงผลการนำเข้า ข้อมูล ")
+
+     filtered_df_score = filtered_df_score.reset_index(drop=True)
      st.dataframe(filtered_df_score)
      number_columns = filtered_df_score.select_dtypes(include=['number']).columns.tolist()
 
@@ -71,8 +80,8 @@ if df_score is not None:
      all_columns = filtered_df_score.columns.tolist()
 
      if all_columns:
-        st.warning("คำเตือน: ควรตรวจเช็คความถูกต้อง ของข้อมูลที่ต้องการคำนวณ")
         selected_column = st.selectbox("กรุณาเลือกคอลัมน์ที่ต้องการคำนวณ :", all_columns)
+        st.warning("คำเตือน: ควรตรวจเช็คความถูกต้อง ของคอลัมน์ที่ -ต้องการคำนวณ-")
 #------------------ ระบบการคำนวน-----------------------------------
      if selected_column:
          st.markdown("""
@@ -109,13 +118,14 @@ if df_score is not None:
           Md_score = filtered_df_score[selected_column].median()
           st.success(f"ค่ามัธยฐาน (Midian) :  {Md_score:.2f}")
 
-          Mo_score = filtered_df_score[selected_column].mode()
+          
           value_counts = filtered_df_score[selected_column].value_counts()
           if value_counts.iloc[0] == 1:
-            Mo_score = st.error("์ไม่มี ค่าฐานนิยม")
+            st.error("์ไม่มี ค่าฐานนิยม")
           else:
+            Mo_score = filtered_df_score[selected_column].mode()
             Mo_score = ", ".join(map(str, Mo_score.tolist()))
-          st.success(f"ค่าฐานนิยม (Mode) :  {Mo_score}")
+            st.success(f"ค่าฐานนิยม (Mode) :  {Mo_score}")
 
           MDscore = (filtered_df_score[selected_column] - Average_score).abs().mean()
           st.success(f"ค่าเบี่ยงเบนเฉลี่ย (Mean Absolute Deviation) :  {MDscore:.2f}")
@@ -126,6 +136,7 @@ if df_score is not None:
           S2score = filtered_df_score[selected_column].var()
           st.success(f"ค่าความแปรปรวน (Variance) :  {S2score:.2f}")
 
+#--- แจกแจงความถี่ ---
         elif calc_mode == "แบบแจกแจงความถี่ (Frequency Distribution)":
           st.subheader("📊 ผลการคำนวณแบบแจกแจงความถี่")
           st.write("-------------------------------------------------------------")

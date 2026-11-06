@@ -6,7 +6,8 @@ import numpy as np
 
 #-------------นำเข้าข้อมูล----------------
 
-#-----------ส่วนรับข้อมูล------------------
+
+#-----------ส่วนรับข้อมูล Excel Scv Json------------------
 st.title("โปรแกรมคำนวนข้อมูล (รองรับ Exell, CSV, JSON)")
 uploaded_file = st.file_uploader("กรุณาอัปโหลดไฟล์ข้อมูล (รองรับ .xls, .csv, .json)", type=["xlsx", "xls", ".csv", "json"],)
 
@@ -18,48 +19,64 @@ if uploaded_file is not None:
         file_score = uploaded_file.name 
 
         if file_score.endswith((".xlsx", ".xls")):
-             df_score = pd.read_excel(uploaded_file, header=None)
-             df_score.columns = [f"คอลัมน์_{i+1}" for i in range(df_score.shape[1])]
+             df_score = pd.read_excel(uploaded_file, header=0)
+             try:
+                 float(str(df_score.columns[0]))
+                 has_no_header = True
+             except ValueError:
+                 has_no_header = False
+             
+             if has_no_header:
+                 uploaded_file.seek(0)
+                 df_score = pd.read_excel(uploaded_file, header=None)
+                 df_score.columns = [f"คอลัมน์_{i+1}" for i in range(df_score.shape[1])]
              st.info("ตรวจสอบไฟล์ ประเภท : Excel")
 
         elif file_score.endswith((".csv")):
-             df_score = pd.read_csv(uploaded_file, header=None)
-             df_score.columns = [f"คอลัมน์_{i+1}" for i in range(df_score.shape[1])]
+             df_score = pd.read_csv(uploaded_file, header= 0)
+             try:
+                 float(str(df_score.columns[0]))
+                 has_no_header = True
+             except ValueError:
+                 has_no_header = False
+             
+             if has_no_header:
+                 uploaded_file.seek(0)
+                 df_score = pd.read_csv(uploaded_file, header=None)
+                 df_score.columns = [f"คอลัมน์_{i+1}" for i in range(df_score.shape[1])]
              st.info("ตรวจสอบไฟล์ ประเภท : CSV")
 
         elif file_score.endswith(".json"):
-         json_data = json.load(uploaded_file)
+          json_data = json.load(uploaded_file)
 
-        if json_data is not None: 
+          if json_data is not None: 
             if isinstance(json_data, dict):
-              target_key = "Point" or "point" or "POINT" or "Score" or "score" or "SCORE"
-
-            if target_key in json_data:
-              df_score = pd.DataFrame(json_data[target_key])
-              df_score.columns = [f"คอลัมน์_{i+1}" for i in range(df_score.shape[1])]
-              st.info("ตรวจสอบไฟล์ ประเภท : JSON")
-            elif isinstance(json_data, dict):
               key_name = list(json_data.keys())[0]
               df_score = pd.DataFrame(json_data[key_name])
-              df_score.columns = [f"คอลัมน์_{i+1}" for i in range(df_score.shape[1])]
-              st.info("ตรวจสอบไฟล์ ประเภท : JSON")
-            else:
-              df_score = pd.DataFrame(json_data)
-              df_score.columns = [f"คอลัมน์_{i+1}" for i in range(df_score.shape[1])]
-              st.info("ตรวจสอบไฟล์ ประเภท : JSON")
+          else:
+            df_score = pd.DataFrame(json_data)
+
+          if not isinstance(df_score.columns[0], (int, float)):
+            pass
+          else:
+            df_score.columns = [f"คอลัมน์_{i+1}" for i in range(df_score.shape[1])]
+        
+          st.info("ตรวจสอบไฟล์ ประเภท : JSON")
 
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการโหลดไฟล์: {e}")
 
 if df_score is not None:
      st.success("โหลดและแปลงข้อมูล สำเร็จ!")
-#-----------------------คัดกรองข้อมูล 1-999-------------------------------------
+#-----------------------คัดกรองข้อมูล 1-999 and รับค่าได้ 100 ค่า-------------------------------------
      target_col_score = df_score.columns[0]
 
      df_score[target_col_score] = pd.to_numeric(df_score[target_col_score], errors="coerce")
+     df_score = df_score.dropna(subset=[target_col_score])
+     df_score[target_col_score] = df_score[target_col_score].astype(int)
      filtered_df_score = df_score[df_score[target_col_score] >= 1 
                        & (df_score[target_col_score] <= 999) 
-                       & (df_score[target_col_score] == df_score[target_col_score].astype(float))]
+     ]
 
      total_input = len(filtered_df_score)
      if total_input > 100:
@@ -68,7 +85,7 @@ if df_score is not None:
      else:
             st.success(f"✅ รับข้อมูลสำเร็จครบถ้วน จำนวน {total_input} ค่า")
 
-#---------------------ระบบเลือก คอลัมน์ ที่ต้องการคำนวณ-----------------
+#---------------------ระบบแสดงผลข้อมูลและ เลือก คอลัมน์ ที่ต้องการคำนวณ-----------------
      st.header("ตารางแสดงผลการนำเข้า ข้อมูล ")
 
      filtered_df_score = filtered_df_score.reset_index(drop=True)
@@ -82,7 +99,8 @@ if df_score is not None:
      if all_columns:
         selected_column = st.selectbox("กรุณาเลือกคอลัมน์ที่ต้องการคำนวณ :", all_columns)
         st.warning("คำเตือน: ควรตรวจเช็คความถูกต้อง ของคอลัมน์ที่ -ต้องการคำนวณ-")
-#------------------ ระบบการคำนวน-----------------------------------
+
+#------------------ ระบบเลือกรูปแบบ การคำนวน และขยายตัวอักษร-----------------------------------
      if selected_column:
          st.markdown("""
     <style>
@@ -99,41 +117,42 @@ if df_score is not None:
              ("แบบไม่แจกแจงความถี่ (Ungrouped Data)", "แบบแจกแจงความถี่ (Frequency Distribution)")
          )
          st.write("-------------------------------------------------------------")
+
+
+
 #-------------------การคำนวน ไม่แจกแจง ความถี่------------------------
-     
-     
      if selected_column:
         if calc_mode == "แบบไม่แจกแจงความถี่ (Ungrouped Data)":
           st.subheader("📊 ผลการคำนวณแบบไม่แจกแจงความถี่")
           
-          Max_score = filtered_df_score[selected_column].max()
+          Max_score = filtered_df_score[selected_column].max() #หาค่าสูงสุด
           st.success(f"ค่าสูงสุด (Max) :  {Max_score:.2f}")
 
-          Min_score = filtered_df_score[selected_column].min()
+          Min_score = filtered_df_score[selected_column].min() #หาค่าต่ำสุด
           st.success(f"ค่าต่ำสุด (min) :  {Min_score:.2f}")
 
-          Average_score = filtered_df_score[selected_column].mean()
+          Average_score = filtered_df_score[selected_column].mean() #หาค่าเฉลี่ย
           st.success(f"ค่าเฉลี่ย (Mean) :  {Average_score:.2f}")
 
-          Md_score = filtered_df_score[selected_column].median()
+          Md_score = filtered_df_score[selected_column].median() # หาค่ามัธยฐาน
           st.success(f"ค่ามัธยฐาน (Midian) :  {Md_score:.2f}")
 
-          
+#--          ฐานนิยม
           value_counts = filtered_df_score[selected_column].value_counts()
           if value_counts.iloc[0] == 1:
-            st.error("์ไม่มี ค่าฐานนิยม")
+            st.error("ไม่มี ค่าฐานนิยม")
           else:
             Mo_score = filtered_df_score[selected_column].mode()
             Mo_score = ", ".join(map(str, Mo_score.tolist()))
             st.success(f"ค่าฐานนิยม (Mode) :  {Mo_score}")
-
-          MDscore = (filtered_df_score[selected_column] - Average_score).abs().mean()
+#---
+          MDscore = (filtered_df_score[selected_column] - Average_score).abs().mean() #ค่าเบี่ยงเบน
           st.success(f"ค่าเบี่ยงเบนเฉลี่ย (Mean Absolute Deviation) :  {MDscore:.2f}")
 
-          SDscore = filtered_df_score[selected_column].std()
-          st.success(f"ค่าเบี่ยงเบนมาตรฐาน (Standard Deviation) :  {SDscore:.2f}")
+          SDscore = filtered_df_score[selected_column].std() #ค่าเบี่ยงเบนมาตรฐาน
+          st.success(f"ค่าเบี่ยงเบนมาตรฐาน (Standard Deviation) :  {SDscore:.2f}") 
 
-          S2score = filtered_df_score[selected_column].var()
+          S2score = filtered_df_score[selected_column].var() #ค่าความแปรปรวน
           st.success(f"ค่าความแปรปรวน (Variance) :  {S2score:.2f}")
 
 #--- แจกแจงความถี่ ---
@@ -141,19 +160,19 @@ if df_score is not None:
           st.subheader("📊 ผลการคำนวณแบบแจกแจงความถี่")
           st.write("-------------------------------------------------------------")
           
-          total_data = len(filtered_df_score[selected_column].dropna())
+          total_data = len(filtered_df_score[selected_column].dropna()) #นับจำนวนข้อมูลที่มีอยู่จริงในคอลัมน์ที่เลือก (โดยไม่นับค่าว่างหรือช่องที่ไม่มีข้อมูล)
 
           Max_score = filtered_df_score[selected_column].max()
           Min_score = filtered_df_score[selected_column].min()
         
-          R_score = Max_score - Min_score 
- #********************************************************************************************
+          R_score = Max_score - Min_score #หาค่าพิสัย
+ #-----------------------------ระบบเลือกจำนวนชั้น ตั้งแต่ 3-15 --------------------------------------------
           st.warning("โปรดเลือกชั้นที่ต้องการ เพื่อนำไปคำนวณในการหาข้อมูลแบบ แจกแจงความถี่")       
           num_classes = st.slider("เลือกจำนวนชั้น (3 - 15 ชั้น):", min_value=3, max_value=15, value=5)
           st.success(f"จำนวนชั้นที่คุณเลือกคือ: {num_classes}")
 
           i_Layer = int(np.ceil(R_score / num_classes)) if R_score > 0 else 1 #อัตราภาคชั้น
-#-------------------คำนวณ ขีดบน ล่าง กึ่งกลาง--------------------------------------------------
+#-------------------คำนวณ ขีดบน ขีดล่าง และค่ากึ่งกลาง--------------------------------------------------
           lower_limits = [Min_score + (k * i_Layer) for k in range(num_classes)]
           upper_limits = [lower + i_Layer - 1 for lower in lower_limits]
 
@@ -164,19 +183,18 @@ if df_score is not None:
           upper_real = [upper + 0.5 for upper in upper_limits]
 
           midpoints = [(lower + upper) / 2.0 for lower, upper in zip(lower_limits, upper_limits)]
-
-          frequencies = []
+#----------------------------------------------------------------------------------------------------
+          frequencies = [] #ความถี่
           for lower, upper in zip(lower_limits, upper_limits):
             count_fq = filtered_df_score[(filtered_df_score[selected_column] >= lower) & (filtered_df_score[selected_column] <= upper)].shape[0]
             frequencies.append(int(count_fq))
 
-          sum_frequencies = sum(frequencies)
+#---------------------------------------------------------------
+          cumulative_frequencies = np.cumsum(frequencies).tolist() #ความถี่สะสม
 
-          cumulative_frequencies = np.cumsum(frequencies).tolist()
+          proportions = [f / total_data if total_data > 0 else 0 for f in frequencies] #สัดส่วน
 
-          proportions = [f / total_data if total_data > 0 else 0 for f in frequencies]
-
-          percentages = [p * 100 for p in proportions]
+          percentages = [p * 100 for p in proportions] #ร้อยละ
 
 #------------------การแสดงหน้าต่างรวม------------------
           freq_table = pd.DataFrame({
@@ -212,7 +230,7 @@ if df_score is not None:
 #-----------------------------การหาค่าสถิติ--------------------------------------------------------------
           st.write("---------------------------------------------------")
           st.header("การคำนวณค่าสถิติ")
-
+#----------------------------------ระบบคำนวน ควอรืไทล์-----------------
           n = total_data
 
           def calculate_Quartie(k):
@@ -228,7 +246,7 @@ if df_score is not None:
 
                  Q_val = L + (((target - cf_prev) / f_q) * i_Layer)
                  return Q_val
-              
+#-------------------หาค่าความเบี่ยงเบนควอไทล์-----------------------------              
           Q1 = calculate_Quartie(1)
           Q3 = calculate_Quartie(3)
 
@@ -241,7 +259,7 @@ if df_score is not None:
           st.success(f"พิสัยรหว่างควอร์ไทล์ : {IndexR:.2f}")
           st.success(f"ค่าเบี่ยงเบนควอร์ไทล์ : {Qd:.2f}")
 
-#---
+#-------------------------หาค่า ความเบี่ยงเบนมาตรฐาน--------------------------
           f = np.array(frequencies)
           x = np.array(midpoints)
 
@@ -256,8 +274,11 @@ if df_score is not None:
             S = 0
 
           st.success(f"ค่าเบี่ยงเบนมาตราฐาน (S):  {S:.2f}")
-#---
 
+#--------------------หาค่าความแปรปรวน---------------------------------------------------
+          S2 = S ** 2
+          st.success(f"หาค่าความแปรปรวน (S2):  {S2:.2f}")
+#---------------------------หาค่าเฉลี่ย----------------------------------------------------
           if n > 0:
              mean_X = sum_fx / n 
           else:
@@ -265,7 +286,7 @@ if df_score is not None:
 
           st.success(f"ค่าเฉลี่ยเลขคณิต (X) :  {mean_X:.2f}")
 
- #---
+ #-----------------หาค่ามัธยฐาน------------------------------------------------
           target_md = n / 2
           median_val = 0.0
 
@@ -283,7 +304,7 @@ if df_score is not None:
           
           st.success(f"ค่ามัธยฐาน (Md):  {median_val:.2f}")
 
- #---
+ #--------------------------หาค่าฐานนิยม (Mo)----------------------------------------
           max_freq = max(frequencies)
           mode_values = []
       
@@ -312,3 +333,5 @@ if df_score is not None:
           else:
             st.warning("ไม่พบฐานนิยม เนื่องจากความถี่ทุกชั้นเป็น 0")
 #-------------------------------------------------------------------
+#ของฉันเอง
+#เผื่อมีคนเอาไปใช้คับ อาการร้อนมากมาย 68003263021 

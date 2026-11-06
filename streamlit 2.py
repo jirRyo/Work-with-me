@@ -9,6 +9,8 @@ import numpy as np
 
 #-----------ส่วนรับข้อมูล Excel Scv Json------------------
 st.title("โปรแกรมคำนวนข้อมูล (รองรับ Exell, CSV, JSON)")
+st.header("รองรับข้อมูลจำนวนเต็มบวก 1-999 ")
+st.warning("โดยโปรแกรม กรองข้อมูลและใช้ข้อมูล 100 ตัวแรกเท่านั้น")
 uploaded_file = st.file_uploader("กรุณาอัปโหลดไฟล์ข้อมูล (รองรับ .xls, .csv, .json)", type=["xlsx", "xls", ".csv", "json"],)
 
 df_score = None
